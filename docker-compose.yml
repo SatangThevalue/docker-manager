@@ -1,0 +1,29 @@
+# docker-compose.yml
+version: "3.8"
+
+services:
+  host-manager:
+    build: .
+    container_name: host-manager
+    restart: unless-stopped
+    ports:
+      - "8000:8000" # สำหรับเข้า API (เช่น http://localhost:8000/hosts)
+    environment:
+      # บอกให้ Python เขียนลงไฟล์นี้
+      - HOST_FILE_PATH=/app/hosts.file
+    volumes:
+      # 1. (สำคัญมาก) Mount Docker Socket 
+      #    เพื่อให้ Container นี้ 'เห็น' Docker Events
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+      # 2. (สำคัญมาก) Mount ไฟล์ /etc/hosts ของเครื่อง Host 
+      #    มาไว้ที่ /app/hosts.file ภายใน Container
+      - /etc/hosts:/app/hosts.file
+    healthcheck:
+      # ใช้ curl (ที่มีในอิมเมจ python-slim) 
+      # -f = fail fast (exit code > 0 ถ้า HTTP status ไม่ใช่ 2xx)
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s    # ตรวจสอบทุก 30 วินาที
+      timeout: 10s     # รอคำตอบไม่เกิน 10 วินาที
+      retries: 3       # พยายาม 3 ครั้งก่อนจะ mark ว่า unhealthy
+      start_period: 15s # ให้เวลา 15 วินาทีในการเริ่มแอปก่อนเริ่มเช็ค
